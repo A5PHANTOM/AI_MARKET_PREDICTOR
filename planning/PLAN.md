@@ -454,3 +454,41 @@ The container is designed to deploy to AWS App Runner, Render, or any container 
 - Portfolio visualization: heatmap renders with correct colors, P&L chart has data points
 - AI chat (mocked): send a message, receive a response, trade execution appears inline
 - SSE resilience: disconnect and verify reconnection
+
+---
+
+## 13. Plan Review — Questions, Clarifications & Simplifications
+
+### Questions & Clarifications
+
+1. **Sparklines reset on page refresh (Section 2, 10)** — Sparklines are built from SSE data since page load, so they reset on every refresh. Is this intentional, or should the server backfill historical prices on SSE connect?
+
+2. **Trade bar — no confirmation dialog (Section 2)** — One-click buy/sell with no confirmation. Intentional for a fluid demo, but worth noting explicitly as a UX trade-off.
+
+3. **Model name in Section 9** — `openrouter/openai/gpt-oss-120b` hosted via Cerebras inference. Is this model definitely available via Cerebras? The naming convention differs from typical Cerebras model IDs — verify availability before implementation.
+
+4. **LLM Mock Mode (Section 9, 12)** — What does the deterministic mock response look like? Hardcoded JSON? Documenting the exact mock schema/response would make E2E tests more reliable.
+
+5. **Float precision for financial values (Section 7)** — `positions.avg_cost` and other monetary fields use REAL (float). Floating-point drift in financial calculations is a known issue — consider storing as cents (integer) or using DECIMAL.
+
+6. **`test/` vs `tests/` naming** — Backend uses `backend/tests/` but E2E tests live in top-level `test/`. This inconsistency could confuse contributors.
+
+7. **Portfolio snapshots on fresh DB** — The 30s background task means a new database starts with zero chart data until the first snapshot fires. Consider seeding an initial snapshot row on startup.
+
+### Feedback
+
+- **SSE pushes all tickers to all clients (Section 6)** — For future multi-user support, every client receives updates for all tickers in the system, not just their own watchlist. Consider per-user filtering in the SSE stream even now (the `user_id` field is already in the schema).
+
+- **Treemap visualization effort (Section 10)** — Treemaps are non-trivial to render and few React chart libraries support them. Likely requires a D3-based custom component. Worth flagging this as higher-effort than the other visualizations.
+
+- **Chart library choice (Section 10)** — The plan lists "Lightweight Charts or Recharts" as options. These are fundamentally different (canvas vs SVG). Picking one upfront avoids architectural indecision.
+
+### Opportunities to Simplify
+
+| Area | Suggestion | Why |
+|------|-----------|-----|
+| `backend/db/` directory | Rename to `backend/schema/` or inline SQL in startup code | Avoids confusion with top-level `db/` volume mount |
+| 4 start/stop scripts | Replace with a single `docker-run.sh` + rely on `docker-compose.yml` | Less surface area; `docker compose up` is already one command |
+| `portfolio_snapshots` background task | Record snapshots only on trade execution, remove 30s timer | Eliminates background task + timing complexity; still provides P&L data |
+| `watchlist` table | Store as a JSON column on `user_profile` | Removes one table + its CRUD endpoints; a watchlist is just a list of strings |
+| 10 default tickers | Start with 5 (AAPL, GOOGL, MSFT, AMZN, TSLA) | Smaller SSE payload, simpler initial visual state; users add more later |

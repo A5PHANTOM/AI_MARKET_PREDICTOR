@@ -1,0 +1,1 @@
+review the sdocument file in the planning folder callled $ARGUMENTS and add questions, calrifications or feedback to a new section at the end, along. with any oppertunities to simplify
