@@ -134,8 +134,11 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Environments (API keys, secrets — NEVER commit)
 .env
+
+# Runtime SQLite database (may contain portfolio data)
+db/finally.db
 .envrc
 .venv
 env/
