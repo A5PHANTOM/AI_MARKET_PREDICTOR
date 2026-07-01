@@ -2,7 +2,7 @@
 
 Run with:  uv run market_data_demo.py
 
-Displays a live-updating terminal dashboard of simulated stock prices
+Displays a live-updating terminal dashboard of simulated cryptocurrency prices
 using the GBM simulator and Rich library.
 """
 
@@ -23,17 +23,14 @@ from app.market.cache import PriceCache
 from app.market.seed_prices import SEED_PRICES
 from app.market.simulator import SimulatorDataSource
 
-# Sparkline characters, low to high
 SPARK_CHARS = "▁▂▃▄▅▆▇█"
 
-# Ordered ticker list matching the default watchlist
-TICKERS = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "NVDA", "META", "JPM", "V", "NFLX"]
+TICKERS = ["BTC", "ETH", "SOL", "XRP", "BNB", "DOGE", "ADA", "AVAX", "DOT", "LINK"]
 
-DURATION = 60  # seconds
+DURATION = 60
 
 
 def sparkline(values: list[float]) -> str:
-    """Render a sequence of values as a unicode sparkline."""
     if len(values) < 2:
         return ""
     lo, hi = min(values), max(values)
@@ -45,10 +42,11 @@ def sparkline(values: list[float]) -> str:
 
 
 def format_price(price: float) -> str:
-    """Format a price with comma separator."""
     if price >= 1000:
         return f"{price:,.2f}"
-    return f"{price:.2f}"
+    if price >= 1:
+        return f"{price:.2f}"
+    return f"{price:.6f}"
 
 
 def build_table(
@@ -56,7 +54,6 @@ def build_table(
     history: dict[str, deque],
     elapsed: float,
 ) -> Table:
-    """Build the price table."""
     table = Table(
         title=None,
         expand=True,
@@ -66,10 +63,10 @@ def build_table(
         padding=(0, 1),
     )
     table.add_column("Ticker", style="bold bright_white", width=8)
-    table.add_column("Price", justify="right", width=10)
-    table.add_column("Change", justify="right", width=9)
-    table.add_column("Chg %", justify="right", width=8)
-    table.add_column("", width=3)  # arrow
+    table.add_column("Price", justify="right", width=12)
+    table.add_column("Change", justify="right", width=11)
+    table.add_column("Chg %", justify="right", width=9)
+    table.add_column("", width=3)
     table.add_column("Sparkline", width=42, no_wrap=True)
 
     for ticker in TICKERS:
@@ -78,7 +75,6 @@ def build_table(
             table.add_row(ticker, "---", "---", "---", "", "")
             continue
 
-        # Direction styling
         if update.direction == "up":
             color = "green"
             arrow = "[bold green]\u25b2[/]"
@@ -90,10 +86,9 @@ def build_table(
             arrow = "[bright_black]\u2500[/]"
 
         price_str = f"[{color}]${format_price(update.price)}[/]"
-        change_str = f"[{color}]{update.change:+.2f}[/]"
+        change_str = f"[{color}]{update.change:+.6f}[/]"
         pct_str = f"[{color}]{update.change_percent:+.2f}%[/]"
 
-        # Sparkline from history
         vals = list(history.get(ticker, []))
         spark_str = f"[bright_cyan]{sparkline(vals)}[/]" if len(vals) > 1 else ""
 
@@ -103,7 +98,6 @@ def build_table(
 
 
 def build_event_log(events: deque) -> Panel:
-    """Build the event log panel."""
     text = Text()
     for evt in events:
         text.append(evt)
@@ -124,7 +118,6 @@ def build_dashboard(
     events: deque,
     start_time: float,
 ) -> Layout:
-    """Build the full dashboard layout."""
     elapsed = time.time() - start_time
     remaining = max(0, DURATION - elapsed)
 
@@ -135,10 +128,9 @@ def build_dashboard(
         Layout(name="footer", size=10),
     )
 
-    # Header
     header_text = Text.assemble(
         ("  FinAlly ", "bold bright_yellow"),
-        ("Market Data Simulator", "bold bright_white"),
+        ("Crypto Simulator", "bold bright_white"),
         ("  |  ", "bright_black"),
         (f"{elapsed:5.1f}s elapsed", "bright_cyan"),
         ("  |  ", "bright_black"),
@@ -150,7 +142,6 @@ def build_dashboard(
     )
     layout["header"].update(Panel(header_text, border_style="bright_yellow"))
 
-    # Body: price table
     layout["body"].update(
         Panel(
             build_table(cache, history, elapsed),
@@ -159,14 +150,12 @@ def build_dashboard(
         )
     )
 
-    # Footer: event log
     layout["footer"].update(build_event_log(events))
 
     return layout
 
 
 def print_summary(cache: PriceCache) -> None:
-    """Print final summary comparing to seed prices."""
     console = Console()
     console.print()
     console.print("[bold bright_yellow]  FinAlly[/] [bold]Session Summary[/]")
@@ -205,20 +194,16 @@ def print_summary(cache: PriceCache) -> None:
 
 
 async def run() -> None:
-    """Main demo loop."""
     cache = PriceCache()
     source = SimulatorDataSource(price_cache=cache, update_interval=0.5)
 
-    # Per-ticker price history for sparklines
     history: dict[str, deque] = {t: deque(maxlen=40) for t in TICKERS}
 
-    # Recent event log
     events: deque = deque(maxlen=12)
 
     await source.start(TICKERS)
     start_time = time.time()
 
-    # Seed initial history points
     for ticker in TICKERS:
         update = cache.get(ticker)
         if update:
@@ -234,19 +219,16 @@ async def run() -> None:
             while time.time() - start_time < DURATION:
                 await asyncio.sleep(0.25)
 
-                # Check for updates
                 if cache.version == last_version:
                     continue
                 last_version = cache.version
 
-                # Record history & detect events
                 for ticker in TICKERS:
                     update = cache.get(ticker)
                     if update is None:
                         continue
                     history[ticker].append(update.price)
 
-                    # Log notable moves
                     if abs(update.change_percent) > 1.0:
                         direction = "\u25b2" if update.direction == "up" else "\u25bc"
                         color = "green" if update.direction == "up" else "red"

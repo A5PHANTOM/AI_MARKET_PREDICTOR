@@ -21,7 +21,7 @@ Single Docker container serving everything on port 8000:
 - **Backend**: FastAPI (Python/uv) with SSE streaming
 - **Database**: SQLite with lazy initialization
 - **AI**: LiteLLM → OpenRouter (Cerebras inference) with structured outputs
-- **Market data**: Built-in GBM simulator (default) or Massive API (optional)
+- **Market data**: Built-in GBM simulator (default) or CoinGecko API (optional)
 
 ## Quick Start
 
@@ -77,7 +77,7 @@ finally/
 │   └── next.config.js
 ├── backend/           # FastAPI uv project (Python)
 │   ├── app/
-│   │   ├── market/    # Market data subsystem (simulator + Massive API)
+│   │   ├── market/    # Market data subsystem (simulator + CoinGecko API)
 │   │   ├── routes/    # API routes (portfolio, watchlist, chat, health)
 │   │   ├── database.py # Async SQLite with lazy init
 │   │   ├── llm.py     # LiteLLM/OpenRouter integration
@@ -95,7 +95,7 @@ finally/
 
 | Component | Status |
 |-----------|--------|
-| Market data (GBM simulator + Massive API) | ✅ Complete (73 tests) |
+| Market data (GBM simulator + CoinGecko API) | ✅ Complete |
 | Database (SQLite, lazy init, 6 tables) | ✅ Complete |
 | REST API (portfolio, trades, watchlist, chat) | ✅ Complete |
 | SSE streaming | ✅ Complete |
@@ -110,7 +110,7 @@ finally/
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `OPENROUTER_API_KEY` | Yes | OpenRouter API key for AI chat |
-| `MASSIVE_API_KEY` | No | Massive (Polygon.io) key for real market data; omit to use simulator |
+| `COINGECKO_API_KEY` | No | CoinGecko key for real crypto market data; omit to use simulator |
 | `LLM_MOCK` | No | Set `true` for deterministic mock LLM responses (testing) |
 | `DB_PATH` | No | Path to SQLite database (default: `db/finally.db`) |
 

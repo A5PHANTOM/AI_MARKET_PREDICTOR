@@ -8,124 +8,102 @@ class TestGBMSimulator:
     """Unit tests for the GBM price simulator."""
 
     def test_step_returns_all_tickers(self):
-        """Test that step() returns prices for all tickers."""
-        sim = GBMSimulator(tickers=["AAPL", "GOOGL"])
+        sim = GBMSimulator(tickers=["BTC", "ETH"])
         result = sim.step()
-        assert set(result.keys()) == {"AAPL", "GOOGL"}
+        assert set(result.keys()) == {"BTC", "ETH"}
 
     def test_prices_are_positive(self):
-        """GBM prices can never go negative (exp() is always positive)."""
-        sim = GBMSimulator(tickers=["AAPL"])
+        sim = GBMSimulator(tickers=["BTC"])
         for _ in range(10_000):
             prices = sim.step()
-            assert prices["AAPL"] > 0
+            assert prices["BTC"] > 0
 
     def test_initial_prices_match_seeds(self):
-        """Test that initial prices match seed prices."""
-        sim = GBMSimulator(tickers=["AAPL"])
-        # Before any step, price should be the seed price
-        assert sim.get_price("AAPL") == SEED_PRICES["AAPL"]
+        sim = GBMSimulator(tickers=["BTC"])
+        assert sim.get_price("BTC") == SEED_PRICES["BTC"]
 
     def test_add_ticker(self):
-        """Test adding a ticker dynamically."""
-        sim = GBMSimulator(tickers=["AAPL"])
-        sim.add_ticker("TSLA")
+        sim = GBMSimulator(tickers=["BTC"])
+        sim.add_ticker("ETH")
         result = sim.step()
-        assert "TSLA" in result
+        assert "ETH" in result
 
     def test_remove_ticker(self):
-        """Test removing a ticker."""
-        sim = GBMSimulator(tickers=["AAPL", "GOOGL"])
-        sim.remove_ticker("GOOGL")
+        sim = GBMSimulator(tickers=["BTC", "ETH"])
+        sim.remove_ticker("ETH")
         result = sim.step()
-        assert "GOOGL" not in result
-        assert "AAPL" in result
+        assert "ETH" not in result
+        assert "BTC" in result
 
     def test_add_duplicate_is_noop(self):
-        """Test that adding a duplicate ticker is a no-op."""
-        sim = GBMSimulator(tickers=["AAPL"])
-        sim.add_ticker("AAPL")
+        sim = GBMSimulator(tickers=["BTC"])
+        sim.add_ticker("BTC")
         assert len(sim._tickers) == 1
 
     def test_remove_nonexistent_is_noop(self):
-        """Test that removing a non-existent ticker is a no-op."""
-        sim = GBMSimulator(tickers=["AAPL"])
-        sim.remove_ticker("NOPE")  # Should not raise
+        sim = GBMSimulator(tickers=["BTC"])
+        sim.remove_ticker("NOPE")
 
     def test_unknown_ticker_gets_random_seed_price(self):
-        """Test that unknown tickers get random seed prices."""
         sim = GBMSimulator(tickers=["ZZZZ"])
         price = sim.get_price("ZZZZ")
         assert price is not None
         assert 50.0 <= price <= 300.0
 
     def test_empty_step(self):
-        """Test stepping with no tickers."""
         sim = GBMSimulator(tickers=[])
         result = sim.step()
         assert result == {}
 
     def test_prices_change_over_time(self):
-        """After many steps, prices should have drifted from their seeds."""
-        sim = GBMSimulator(tickers=["AAPL"])
-        initial_price = sim.get_price("AAPL")
+        sim = GBMSimulator(tickers=["BTC"])
+        initial_price = sim.get_price("BTC")
 
         for _ in range(1000):
             sim.step()
 
-        final_price = sim.get_price("AAPL")
-        # Price should have changed (extremely unlikely to be exactly the seed)
+        final_price = sim.get_price("BTC")
         assert final_price != initial_price
 
     def test_cholesky_rebuilds_on_add(self):
-        """Test that Cholesky matrix is rebuilt when tickers are added."""
-        sim = GBMSimulator(tickers=["AAPL"])
-        assert sim._cholesky is None  # Only 1 ticker, no correlation matrix
-        sim.add_ticker("GOOGL")
-        assert sim._cholesky is not None  # Now 2 tickers, matrix exists
+        sim = GBMSimulator(tickers=["BTC"])
+        assert sim._cholesky is None
+        sim.add_ticker("ETH")
+        assert sim._cholesky is not None
 
     def test_cholesky_none_with_one_ticker(self):
-        """Test that Cholesky is None with only one ticker."""
-        sim = GBMSimulator(tickers=["AAPL"])
+        sim = GBMSimulator(tickers=["BTC"])
         assert sim._cholesky is None
 
     def test_get_price_returns_none_for_unknown(self):
-        """Test that get_price returns None for unknown ticker."""
-        sim = GBMSimulator(tickers=["AAPL"])
+        sim = GBMSimulator(tickers=["BTC"])
         assert sim.get_price("UNKNOWN") is None
 
-    def test_pairwise_correlation_tech_stocks(self):
-        """Test that tech stocks have high correlation."""
-        corr = GBMSimulator._pairwise_correlation("AAPL", "GOOGL")
+    def test_pairwise_correlation_blue_chip(self):
+        corr = GBMSimulator._pairwise_correlation("BTC", "ETH")
+        assert corr == 0.7
+
+    def test_pairwise_correlation_large_cap(self):
+        corr = GBMSimulator._pairwise_correlation("SOL", "ADA")
         assert corr == 0.6
 
-    def test_pairwise_correlation_finance_stocks(self):
-        """Test that finance stocks have moderate correlation."""
-        corr = GBMSimulator._pairwise_correlation("JPM", "V")
-        assert corr == 0.5
-
-    def test_pairwise_correlation_tsla(self):
-        """Test that TSLA has lower correlation with everything."""
-        corr = GBMSimulator._pairwise_correlation("TSLA", "AAPL")
+    def test_pairwise_correlation_doge(self):
+        corr = GBMSimulator._pairwise_correlation("DOGE", "BTC")
         assert corr == 0.3
-        corr = GBMSimulator._pairwise_correlation("TSLA", "JPM")
+        corr = GBMSimulator._pairwise_correlation("DOGE", "SOL")
         assert corr == 0.3
 
-    def test_pairwise_correlation_cross_sector(self):
-        """Test cross-sector correlation."""
-        corr = GBMSimulator._pairwise_correlation("AAPL", "JPM")
-        assert corr == 0.3
+    def test_pairwise_correlation_cross_group(self):
+        corr = GBMSimulator._pairwise_correlation("BTC", "SOL")
+        assert corr == 0.4
 
     def test_default_dt_is_reasonable(self):
-        """Test that default dt is a reasonable small value."""
         assert 0 < GBMSimulator.DEFAULT_DT < 0.0001
 
     def test_prices_rounded_to_two_decimals(self):
-        """Test that prices are rounded to 2 decimal places."""
-        sim = GBMSimulator(tickers=["AAPL"])
+        sim = GBMSimulator(tickers=["BTC"])
         result = sim.step()
-        price_str = str(result["AAPL"])
-        # Check that we have at most 2 decimal places
+        price_str = str(result["BTC"])
         if '.' in price_str:
             decimal_part = price_str.split('.')[1]
             assert len(decimal_part) <= 2

@@ -8,27 +8,30 @@ interface Props {
 }
 
 export default function ConnectionStatus({ status }: Props) {
-  const colorMap: Record<CS, string> = {
-    [CS.Connected]: 'bg-price-green shadow-[0_0_6px_#00c853]',
-    [CS.Reconnecting]: 'bg-accent-yellow shadow-[0_0_6px_#ecad0a]',
-    [CS.Disconnected]: 'bg-price-red shadow-[0_0_6px_#ff1744]',
+  const config = {
+    [CS.Connected]: {
+      dot: 'bg-price-green',
+      label: 'Live',
+      pulse: 'animate-pulse-glow',
+    },
+    [CS.Reconnecting]: {
+      dot: 'bg-accent-yellow',
+      label: 'Reconnecting',
+      pulse: '',
+    },
+    [CS.Disconnected]: {
+      dot: 'bg-price-red',
+      label: 'Offline',
+      pulse: '',
+    },
   };
+
+  const c = config[status];
 
   return (
     <div className="flex items-center gap-2">
-      <div
-        className={cn(
-          'w-2 h-2 rounded-full transition-colors duration-300',
-          colorMap[status]
-        )}
-      />
-      <span className="text-data text-gray-400">
-        {status === CS.Connected
-          ? 'Live'
-          : status === CS.Reconnecting
-          ? 'Reconnecting'
-          : 'Offline'}
-      </span>
+      <div className={cn('w-2 h-2 rounded-full transition-all duration-300', c.dot, c.pulse)} />
+      <span className="text-data font-semibold uppercase tracking-wider text-text-muted">{c.label}</span>
     </div>
   );
 }

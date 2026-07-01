@@ -13,7 +13,7 @@ from app.routes import chat_router, health_router, portfolio_router, watchlist_r
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-DEFAULT_TICKERS = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "NVDA", "META", "JPM", "V", "NFLX"]
+DEFAULT_TICKERS = ["BTC", "ETH", "SOL", "XRP", "BNB", "DOGE", "ADA", "AVAX", "DOT", "LINK"]
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "..", "static")
 
 
@@ -73,7 +73,7 @@ def create_app() -> FastAPI:
 
         logger.info("Serving static files from %s", STATIC_DIR)
     else:
-        logger.info("No static directory found at %s — API only", STATIC_DIR)
+        logger.info("No static directory found at %s --- API only", STATIC_DIR)
 
     return app
 

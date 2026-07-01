@@ -65,10 +65,10 @@ def test_app(db_path: str) -> FastAPI:
     app.state.price_cache = PriceCache()
     app.state.market_source = TestMarketSource()
 
-    app.state.price_cache.update("AAPL", 190.00)
-    app.state.price_cache.update("GOOGL", 175.00)
-    app.state.price_cache.update("MSFT", 420.00)
-    app.state.price_cache.update("TSLA", 250.00)
+    app.state.price_cache.update("BTC", 105000.00)
+    app.state.price_cache.update("ETH", 5500.00)
+    app.state.price_cache.update("SOL", 180.00)
+    app.state.price_cache.update("DOGE", 0.15)
 
     app.include_router(portfolio_router)
     app.include_router(watchlist_router)

@@ -10,7 +10,7 @@ FastAPI backend for the FinAlly AI Trading Workstation.
     - `cache.py` - Thread-safe price cache
     - `interface.py` - MarketDataSource abstract interface
     - `simulator.py` - GBM-based market simulator
-    - `massive_client.py` - Massive/Polygon.io API client
+    - `coingecko_client.py` - CoinGecko API client
     - `factory.py` - Data source factory
     - `stream.py` - SSE streaming endpoint
     - `seed_prices.py` - Default ticker prices and parameters
@@ -39,7 +39,7 @@ uv run pytest -v
 
 ## Environment Variables
 
-- `MASSIVE_API_KEY` - Optional. If set, use real market data from Massive API. If not set, use the built-in simulator.
+- `COINGECKO_API_KEY` - Optional. If set, use real crypto market data from CoinGecko. If not set, use the built-in simulator.
 
 ## Development
 

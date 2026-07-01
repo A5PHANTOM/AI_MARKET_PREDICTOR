@@ -6,7 +6,7 @@ from litellm import completion
 MODEL = "openrouter/openai/gpt-oss-120b"
 EXTRA_BODY = {"provider": {"order": ["cerebras"]}}
 
-SYSTEM_PROMPT = """You are FinAlly, an AI trading assistant. You help users manage their simulated portfolio.
+SYSTEM_PROMPT = """You are FinAlly, an AI crypto trading assistant. You help users manage their simulated cryptocurrency portfolio.
 
 You can:
 - Analyze portfolio composition, risk concentration, and P&L
@@ -18,10 +18,10 @@ Always respond with valid JSON in this exact schema:
 {
   "message": "Your conversational response to the user",
   "trades": [
-    {"ticker": "AAPL", "side": "buy", "quantity": 10}
+    {"ticker": "BTC", "side": "buy", "quantity": 0.5}
   ],
   "watchlist_changes": [
-    {"ticker": "PYPL", "action": "add"}
+    {"ticker": "SOL", "action": "add"}
   ]
 }
 
@@ -31,7 +31,7 @@ Be concise and data-driven. The "message" field is the conversational text shown
 """
 
 MOCK_RESPONSE = {
-    "message": "I've reviewed your portfolio. You have $10,000.00 in cash with no open positions. I suggest starting with a diversified approach. Consider buying AAPL and MSFT as core holdings. Let me know if you'd like me to execute any trades!",
+    "message": "I've reviewed your portfolio. You have $10,000.00 in cash with no open positions. I suggest starting with a diversified crypto approach. Consider BTC and ETH as core holdings with some SOL for growth exposure. Let me know if you'd like me to execute any trades!",
     "trades": [],
     "watchlist_changes": [],
 }

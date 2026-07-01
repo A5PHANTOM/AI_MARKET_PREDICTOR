@@ -7,6 +7,7 @@ from app.database import get_db
 from app.llm import _build_portfolio_context, call_llm
 from app.market import MarketDataSource, PriceCache
 from app.models import ChatRequest, ChatResponse, TradeResponse
+from app.trading import execute_portfolio_trade
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -86,88 +87,24 @@ async def chat(request: Request, body: ChatRequest):
             side = trade["side"]
             quantity = float(trade["quantity"])
 
-            update = price_cache.get(ticker)
-            price = update.price if update else 0.0
-
-            cursor = await db.execute(
-                "SELECT cash_balance FROM users_profile WHERE id = 'default'"
-            )
-            user_row = await cursor.fetchone()
-            cash = user_row["cash_balance"] if user_row else 10000.0
-
-            cursor = await db.execute(
-                "SELECT ticker, quantity, avg_cost FROM positions WHERE user_id = 'default' AND ticker = ?",
-                (ticker,),
-            )
-            existing = await cursor.fetchone()
-
-            trade_now = datetime.now(timezone.utc).isoformat()
-            error = None
-
-            if side == "buy":
-                cost = quantity * price
-                if cost > cash:
-                    error = f"Insufficient cash. Need ${cost:,.2f} but have ${cash:,.2f}"
-                else:
-                    if existing:
-                        old_qty = existing["quantity"]
-                        old_avg = existing["avg_cost"]
-                        new_avg_val = ((old_avg * old_qty) + (price * quantity)) / (old_qty + quantity)
-                        new_qty = old_qty + quantity
-                        await db.execute(
-                            "UPDATE positions SET quantity = ?, avg_cost = ?, updated_at = ? WHERE user_id = 'default' AND ticker = ?",
-                            (new_qty, round(new_avg_val, 4), trade_now, ticker),
-                        )
-                    else:
-                        pos_id = uuid.uuid4().hex
-                        await db.execute(
-                            "INSERT INTO positions (id, user_id, ticker, quantity, avg_cost, updated_at) VALUES (?, 'default', ?, ?, ?, ?)",
-                            (pos_id, ticker, quantity, round(price, 4), trade_now),
-                        )
-
-                    await db.execute(
-                        "UPDATE users_profile SET cash_balance = ? WHERE id = 'default'",
-                        (round(cash - cost, 2),),
-                    )
-
-            else:
-                if not existing or existing["quantity"] < quantity:
-                    have_qty = existing["quantity"] if existing else 0
-                    error = f"Insufficient shares. Have {have_qty} but want to sell {quantity}"
-                else:
-                    new_quantity = existing["quantity"] - quantity
-                    if new_quantity <= 0:
-                        await db.execute(
-                            "DELETE FROM positions WHERE user_id = 'default' AND ticker = ?",
-                            (ticker,),
-                        )
-                    else:
-                        await db.execute(
-                            "UPDATE positions SET quantity = ?, updated_at = ? WHERE user_id = 'default' AND ticker = ?",
-                            (new_quantity, trade_now, ticker),
-                        )
-
-                    proceeds = quantity * price
-                    await db.execute(
-                        "UPDATE users_profile SET cash_balance = ? WHERE id = 'default'",
-                        (round(cash + proceeds, 2),),
-                    )
-
-            trade_id = uuid.uuid4().hex
-            await db.execute(
-                "INSERT INTO trades (id, user_id, ticker, side, quantity, price, executed_at) VALUES (?, 'default', ?, ?, ?, ?, ?)",
-                (trade_id, ticker, side, quantity, round(price, 2), trade_now),
-            )
-
-            executed_trades.append(TradeResponse(
-                ticker=ticker,
-                side=side,
-                quantity=quantity,
-                price=round(price, 2),
-                executed_at=trade_now,
-                success=error is None,
-                error=error,
-            ))
+            try:
+                executed_trades.append(await execute_portfolio_trade(
+                    db,
+                    price_cache,
+                    ticker=ticker,
+                    quantity=quantity,
+                    side=side,
+                ))
+            except ValueError as exc:
+                executed_trades.append(TradeResponse(
+                    ticker=ticker,
+                    side=side,
+                    quantity=quantity,
+                    price=0.0,
+                    executed_at=datetime.now(timezone.utc).isoformat(),
+                    success=False,
+                    error=str(exc),
+                ))
 
         for change in llm_response.get("watchlist_changes", []):
             ticker = change["ticker"].upper()
