@@ -46,16 +46,16 @@ async def test_seed_watchlist_has_ten_tickers(db_path: str) -> None:
         )
         tickers = [row["ticker"] for row in await cursor.fetchall()]
     assert len(tickers) == 10
-    assert "AAPL" in tickers
-    assert "GOOGL" in tickers
-    assert "MSFT" in tickers
-    assert "AMZN" in tickers
-    assert "TSLA" in tickers
-    assert "NVDA" in tickers
-    assert "META" in tickers
-    assert "JPM" in tickers
-    assert "V" in tickers
-    assert "NFLX" in tickers
+    assert "BTC" in tickers
+    assert "ETH" in tickers
+    assert "SOL" in tickers
+    assert "XRP" in tickers
+    assert "BNB" in tickers
+    assert "DOGE" in tickers
+    assert "ADA" in tickers
+    assert "AVAX" in tickers
+    assert "DOT" in tickers
+    assert "LINK" in tickers
 
 
 @pytest.mark.asyncio
@@ -65,7 +65,7 @@ async def test_insert_and_retrieve_trade(db_path: str) -> None:
         trade_id = uuid.uuid4().hex
         await db.execute(
             "INSERT INTO trades (id, user_id, ticker, side, quantity, price, executed_at) "
-            "VALUES (?, 'default', 'AAPL', 'buy', 10.0, 190.0, '2025-01-01T00:00:00')",
+            "VALUES (?, 'default', 'BTC', 'buy', 0.5, 105000.0, '2025-01-01T00:00:00')",
             (trade_id,),
         )
         await db.commit()
@@ -77,8 +77,8 @@ async def test_insert_and_retrieve_trade(db_path: str) -> None:
         row = await cursor.fetchone()
     assert row is not None
     assert row["side"] == "buy"
-    assert row["quantity"] == 10.0
-    assert row["price"] == 190.0
+    assert row["quantity"] == 0.5
+    assert row["price"] == 105000.0
 
 
 @pytest.mark.asyncio
@@ -88,7 +88,7 @@ async def test_insert_and_retrieve_position(db_path: str) -> None:
     async with get_db() as db:
         await db.execute(
             "INSERT INTO positions (id, user_id, ticker, quantity, avg_cost, updated_at) "
-            "VALUES (?, 'default', 'AAPL', 10.0, 190.0, '2025-01-01T00:00:00')",
+            "VALUES (?, 'default', 'BTC', 0.5, 105000.0, '2025-01-01T00:00:00')",
             (position_id,),
         )
         await db.commit()
@@ -99,8 +99,8 @@ async def test_insert_and_retrieve_position(db_path: str) -> None:
         )
         row = await cursor.fetchone()
     assert row is not None
-    assert row["quantity"] == 10.0
-    assert row["avg_cost"] == 190.0
+    assert row["quantity"] == 0.5
+    assert row["avg_cost"] == 105000.0
 
 
 @pytest.mark.asyncio

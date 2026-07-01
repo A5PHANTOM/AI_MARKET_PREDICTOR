@@ -67,7 +67,7 @@ The user runs a single Docker command (or a provided start script). A browser op
 - **Database**: SQLite, single file at `db/finally.db`, volume-mounted for persistence
 - **Real-time data**: Server-Sent Events (SSE) — simpler than WebSockets, one-way server→client push, works everywhere
 - **AI integration**: LiteLLM → OpenRouter (Cerebras for fast inference), with structured outputs for trade execution
-- **Market data**: Environment-variable driven — simulator by default, real data via Massive API if key provided
+- **Market data**: Environment-variable driven — simulator by default, real crypto data via CoinGecko if key provided
 
 ### Why These Choices
 
@@ -124,9 +124,9 @@ finally/
 # Required: OpenRouter API key for LLM chat functionality
 OPENROUTER_API_KEY=your-openrouter-api-key-here
 
-# Optional: Massive (Polygon.io) API key for real market data
+# Optional: CoinGecko API key for real crypto market data
 # If not set, the built-in market simulator is used (recommended for most users)
-MASSIVE_API_KEY=
+COINGECKO_API_KEY=
 
 # Optional: Set to "true" for deterministic mock LLM responses (testing)
 LLM_MOCK=false
@@ -134,8 +134,8 @@ LLM_MOCK=false
 
 ### Behavior
 
-- If `MASSIVE_API_KEY` is set and non-empty → backend uses Massive REST API for market data
-- If `MASSIVE_API_KEY` is absent or empty → backend uses the built-in market simulator
+- If `COINGECKO_API_KEY` is set and non-empty → backend uses CoinGecko for market data
+- If `COINGECKO_API_KEY` is absent or empty → backend uses the built-in market simulator
 - If `LLM_MOCK=true` → backend returns deterministic mock LLM responses (for E2E tests)
 - The backend reads `.env` from the project root (mounted into the container or read via docker `--env-file`)
 
@@ -145,7 +145,7 @@ LLM_MOCK=false
 
 ### Two Implementations, One Interface
 
-Both the simulator and the Massive client implement the same abstract interface. The backend selects which to use based on the environment variable. All downstream code (SSE streaming, price cache, frontend) is agnostic to the source.
+Both the simulator and the CoinGecko client implement the same abstract interface. The backend selects which to use based on the environment variable. All downstream code (SSE streaming, price cache, frontend) is agnostic to the source.
 
 ### Simulator (Default)
 

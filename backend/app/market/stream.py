@@ -23,6 +23,12 @@ def create_stream_router(price_cache: PriceCache) -> APIRouter:
     This factory pattern lets us inject the PriceCache without globals.
     """
 
+    @router.get("/snapshot")
+    async def get_price_snapshot(request: Request):
+        """Return current prices for all tracked tickers (non-streaming)."""
+        prices = price_cache.get_all()
+        return {ticker: update.to_dict() for ticker, update in prices.items()}
+
     @router.get("/prices")
     async def stream_prices(request: Request) -> StreamingResponse:
         """SSE endpoint for live price updates.
@@ -51,7 +57,7 @@ def create_stream_router(price_cache: PriceCache) -> APIRouter:
 async def _generate_events(
     price_cache: PriceCache,
     request: Request,
-    interval: float = 0.5,
+    interval: float = 1.0,
 ) -> AsyncGenerator[str, None]:
     """Async generator that yields SSE-formatted price events.
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SSEManager } from '@/lib/sse';
-import { fetchPortfolio, fetchWatchlist, fetchPortfolioHistory } from '@/lib/api';
+import { fetchPortfolio, fetchWatchlist, fetchPortfolioHistory, fetchMarketSnapshot } from '@/lib/api';
 import {
   PortfolioResponse,
   WatchlistItem,
@@ -19,6 +19,8 @@ import PositionsTable from '@/components/PositionsTable';
 import TradeBar from '@/components/TradeBar';
 import ChatPanel from '@/components/ChatPanel';
 
+const ALL_TICKERS = ['BTC', 'ETH', 'SOL', 'XRP', 'BNB', 'DOGE', 'ADA', 'AVAX', 'DOT', 'LINK'];
+
 export default function Home() {
   const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -27,6 +29,7 @@ export default function Home() {
   const [connectionStatus, setConnectionStatus] = useState<CS>(CS.Disconnected);
   const [chatOpen, setChatOpen] = useState(false);
   const [priceHistory, setPriceHistory] = useState<Map<string, PriceData[]>>(new Map());
+  const [chartLoading, setChartLoading] = useState(true);
   const sseRef = useRef<SSEManager | null>(null);
 
   const loadPortfolio = useCallback(async () => {
@@ -59,6 +62,22 @@ export default function Home() {
     }
   }, []);
 
+  // Fetch initial price snapshot to pre-load chart immediately
+  useEffect(() => {
+    fetchMarketSnapshot()
+      .then((snapshot) => {
+        const initial: Map<string, PriceData[]> = new Map();
+        for (const ticker in snapshot) {
+          initial.set(ticker, [snapshot[ticker]]);
+        }
+        setPriceHistory(initial);
+      })
+      .catch(() => {
+        // SSE will fill in when connected
+      })
+      .finally(() => setChartLoading(false));
+  }, []);
+
   useEffect(() => {
     loadPortfolio();
     loadWatchlist();
@@ -68,11 +87,14 @@ export default function Home() {
     sseRef.current = sse;
 
     const unsubStatus = sse.onStatus(setConnectionStatus);
-    const unsubPrice = sse.onPrice((data: PriceData) => {
+    const unsubBatch = sse.onBatch((updates: PriceData[]) => {
       setPriceHistory((prev) => {
         const next = new Map(prev);
-        const existing = next.get(data.ticker) || [];
-        next.set(data.ticker, [...existing, data]);
+        for (const data of updates) {
+          const existing = next.get(data.ticker) || [];
+          existing.push(data);
+          next.set(data.ticker, existing);
+        }
         return next;
       });
     });
@@ -85,7 +107,7 @@ export default function Home() {
     return () => {
       sse.disconnect();
       unsubStatus();
-      unsubPrice();
+      unsubBatch();
       clearInterval(portInterval);
       clearInterval(histInterval);
     };
@@ -97,9 +119,10 @@ export default function Home() {
   }, [loadPortfolio, loadHistory]);
 
   const mainChartData = selectedTicker ? priceHistory.get(selectedTicker) || [] : [];
+  const allTickers = priceHistory.size > 0 ? Array.from(priceHistory.keys()) : ALL_TICKERS;
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
+    <div className="min-h-screen lg:h-screen flex flex-col bg-background text-text-primary lg:overflow-hidden">
       <Header
         portfolio={portfolio}
         connectionStatus={connectionStatus}
@@ -107,45 +130,59 @@ export default function Home() {
         chatOpen={chatOpen}
       />
 
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-60 shrink-0 overflow-y-auto border-r border-border-muted bg-surface/20">
-          <Watchlist
-            items={watchlist}
-            priceHistory={priceHistory}
-            selectedTicker={selectedTicker}
-            onSelectTicker={setSelectedTicker}
-          />
+      <div className="flex-1 min-h-0 relative flex flex-col lg:flex-row p-3 lg:p-4 gap-3">
+        {/* Chat sidebar - always visible on desktop */}
+        <aside className="hidden lg:flex lg:w-[300px] lg:shrink-0 lg:min-h-0">
+          <ChatPanel open={true} onClose={() => setChatOpen(false)} sidebar />
         </aside>
 
-        <main className="flex-1 flex flex-col overflow-hidden">
-          <section className="flex-1 min-h-0 border-b border-border-muted">
-            <MainChart ticker={selectedTicker} data={mainChartData} />
-          </section>
+        {/* Main content area */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 gap-3 lg:grid-cols-[220px_minmax(0,1fr)_280px] lg:grid-rows-[minmax(0,1fr)_180px]">
+          <aside className="dashboard-panel overflow-hidden rounded-lg lg:min-h-0 lg:col-start-1 lg:row-start-1 lg:row-end-3">
+            <Watchlist
+              items={watchlist}
+              priceHistory={priceHistory}
+              selectedTicker={selectedTicker}
+              onSelectTicker={setSelectedTicker}
+            />
+          </aside>
 
-          <section className="shrink-0 border-b border-border-muted">
+          <main className="min-w-0 min-h-0 flex flex-col gap-2 h-full lg:col-start-2 lg:row-start-1 lg:row-end-2">
+            <section className="dashboard-panel overflow-hidden rounded-lg lg:min-h-0 lg:flex-[3]">
+              <MainChart ticker={selectedTicker} data={mainChartData} loading={chartLoading} />
+            </section>
+
+            <section className="dashboard-panel overflow-hidden rounded-lg lg:min-h-0 lg:flex-[2]">
+              <PositionsTable positions={portfolio?.positions || []} />
+            </section>
+          </main>
+
+          <aside className="overflow-hidden rounded-lg lg:min-h-0 lg:col-start-3 lg:row-start-1 lg:row-end-3">
             <TradeBar
               selectedTicker={selectedTicker}
+              allTickers={allTickers}
+              priceData={mainChartData}
+              watchlist={watchlist}
               onTradeComplete={handleTradeComplete}
             />
-          </section>
+          </aside>
 
-          <section className="flex-1 min-h-0 overflow-y-auto">
-            <PositionsTable positions={portfolio?.positions || []} />
-          </section>
-        </main>
-
-        <ChatPanel open={chatOpen} />
-      </div>
-
-      <div className="shrink-0 flex border-t border-border-muted" style={{ height: '200px' }}>
-        <div className="flex-1 min-w-0 border-r border-border-muted">
-          <PortfolioHeatmap
-            positions={portfolio?.positions || []}
-            totalValue={portfolio?.total_value || 0}
-          />
+          <div className="flex gap-2 min-h-0 lg:col-start-2 lg:row-start-2">
+            <section className="dashboard-panel overflow-hidden rounded-lg flex-1">
+              <PortfolioHeatmap
+                positions={portfolio?.positions || []}
+                totalValue={portfolio?.total_value || 0}
+              />
+            </section>
+            <section className="dashboard-panel overflow-hidden rounded-lg flex-1">
+              <PnLChart snapshots={history} />
+            </section>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <PnLChart snapshots={history} />
+
+        {/* Mobile chat overlay */}
+        <div className="lg:hidden">
+          <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
         </div>
       </div>
     </div>

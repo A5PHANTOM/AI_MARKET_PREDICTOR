@@ -21,16 +21,17 @@ interface TreemapNode {
   h: number;
 }
 
-function squarify(items: { ticker: string; value: number; weight: number; pl: number; plPercent: number }[], w: number, h: number): TreemapNode[] {
+function squarify(
+  items: { ticker: string; value: number; weight: number; pl: number; plPercent: number }[],
+  w: number,
+  h: number
+): TreemapNode[] {
   const total = items.reduce((s, i) => s + i.weight, 0);
   if (total === 0) return [];
 
   let nodes: TreemapNode[] = [];
-  let remaining = items.map((i) => ({ ...i, x: 0, y: 0, w: 0, h: 0 }));
-  let cx = 0;
-  let cy = 0;
-  let cw = w;
-  let ch = h;
+  let remaining = [...items.map((i) => ({ ...i, x: 0, y: 0, w: 0, h: 0 }))];
+  let cx = 0, cy = 0, cw = w, ch = h;
 
   function worstRatio(row: typeof remaining, side: number): number {
     if (row.length === 0 || side === 0) return Infinity;
@@ -42,9 +43,8 @@ function squarify(items: { ticker: string; value: number; weight: number; pl: nu
 
   function layoutRow(row: typeof remaining, isVertical: boolean) {
     const sum = row.reduce((s, r) => s + r.weight, 0);
-    const available = isVertical ? ch : cw;
-    const rowSize = (sum / total) * (isVertical ? ch + cw : cw + ch);
     const depth = isVertical ? ch : cw;
+    const available = isVertical ? ch : cw;
 
     let offset = 0;
     row.forEach((r) => {
@@ -56,19 +56,13 @@ function squarify(items: { ticker: string; value: number; weight: number; pl: nu
       offset += size;
     });
 
-    if (isVertical) {
-      cx += depth;
-      cw -= depth;
-    } else {
-      cy += depth;
-      ch -= depth;
-    }
+    if (isVertical) { cx += depth; cw -= depth; }
+    else { cy += depth; ch -= depth; }
   }
 
   while (remaining.length > 0) {
     const isVertical = cw >= ch;
     const side = isVertical ? ch : cw;
-
     let row: typeof remaining = [];
     let rest = [...remaining];
     let bestWorst = Infinity;
@@ -80,9 +74,7 @@ function squarify(items: { ticker: string; value: number; weight: number; pl: nu
         bestWorst = wr;
         row = candidate;
         rest = rest.slice(1);
-      } else {
-        break;
-      }
+      } else break;
     }
 
     layoutRow(row, isVertical);
@@ -111,46 +103,65 @@ export default function PortfolioHeatmap({ positions, totalValue }: Props) {
 
   if (positions.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-        No positions to display
+      <div className="flex h-full flex-col">
+        <div className="panel-header px-4 py-3">
+          <div className="text-data font-semibold uppercase tracking-widest text-text-muted">Allocation</div>
+          <div className="text-sm font-semibold text-text-primary">Portfolio Heatmap</div>
+        </div>
+        <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-text-muted">
+          No positions to display.
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="relative w-full h-full min-h-[200px]">
-      {nodes.map((node) => {
-        const isPositive = node.pl >= 0;
-        const intensity = Math.min(Math.abs(node.plPercent) / 50, 1);
-        const r = isPositive ? Math.floor(0 + (0 - 0) * intensity) : Math.floor(255 - (255 - 255) * intensity);
-        const g = isPositive ? Math.floor(200 - (200 - 80) * intensity) : Math.floor(80 - (80 - 0) * intensity);
-        const b = isPositive ? Math.floor(83 - (83 - 0) * intensity) : Math.floor(68 - (68 - 68) * intensity);
-        const bg = isPositive
-          ? `rgba(0, ${Math.floor(200 - 120 * intensity)}, ${Math.floor(83 - 83 * intensity)}, ${0.3 + 0.5 * intensity})`
-          : `rgba(${Math.floor(255 - 0 * intensity)}, ${Math.floor(68 - 68 * intensity)}, ${Math.floor(68 - 68 * intensity)}, ${0.3 + 0.5 * intensity})`;
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="panel-header flex shrink-0 items-center justify-between px-4 py-3">
+        <div>
+          <div className="text-data font-semibold uppercase tracking-widest text-text-muted">Allocation</div>
+          <div className="text-sm font-semibold text-text-primary">Portfolio Heatmap</div>
+        </div>
+        <span className="font-mono text-data text-text-muted">{formatCurrency(totalValue)}</span>
+      </div>
+      <div className="relative m-3 flex-1">
+        {nodes.map((node, i) => {
+          const isPositive = node.pl >= 0;
+          const intensity = Math.min(Math.abs(node.plPercent) / 50, 1);
+          const bg = isPositive
+            ? `rgba(56, 217, 150, ${0.12 + 0.32 * intensity})`
+            : `rgba(255, 95, 122, ${0.12 + 0.32 * intensity})`;
+          const borderColor = isPositive
+            ? `rgba(56, 217, 150, ${0.18 + 0.28 * intensity})`
+            : `rgba(255, 95, 122, ${0.18 + 0.28 * intensity})`;
 
-        return (
-          <div
-            key={node.ticker}
-            className="absolute flex flex-col items-center justify-center overflow-hidden rounded border border-border-muted cursor-default transition-opacity hover:opacity-80"
-            style={{
-              left: `${node.x}%`,
-              top: `${node.y}%`,
-              width: `${node.w}%`,
-              height: `${node.h}%`,
-              backgroundColor: bg,
-            }}
-          >
-            <span className="text-data-lg font-bold text-white leading-tight">{node.ticker}</span>
-            <span className={`text-data font-mono ${isPositive ? 'text-price-green' : 'text-price-red'}`}>
-              {formatSignedPercent(node.plPercent)}
-            </span>
-            <span className="text-data text-gray-400 hidden sm:block">
-              {formatCurrency(node.pl)}
-            </span>
-          </div>
-        );
-      })}
+          return (
+            <div
+              key={node.ticker}
+              className="absolute flex cursor-default flex-col items-center justify-center overflow-hidden rounded-md animate-fade-in transition-all duration-200 hover:brightness-110"
+              style={{
+                left: `${node.x}%`,
+                top: `${node.y}%`,
+                width: `${node.w}%`,
+                height: `${node.h}%`,
+                backgroundColor: bg,
+                border: `1px solid ${borderColor}`,
+                animationDelay: `${i * 40}ms`,
+              }}
+            >
+              <span className="text-sm font-bold leading-tight text-text-primary drop-shadow-lg">
+                {node.ticker}
+              </span>
+              <span className={`text-data font-mono font-medium ${isPositive ? 'text-price-green' : 'text-price-red'}`}>
+                {formatSignedPercent(node.plPercent)}
+              </span>
+              <span className="text-data text-text-muted hidden sm:block drop-shadow-lg">
+                {formatCurrency(node.pl)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
